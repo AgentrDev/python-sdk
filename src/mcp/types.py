@@ -715,6 +715,13 @@ class Tool(BaseModel):
     inputSchema: dict[str, Any]
     """A JSON Schema object defining the expected parameters for the tool."""
     model_config = ConfigDict(extra="allow")
+    
+    args_description: dict[str, str]
+    """Descriptions of arguments from the tool's docstring"""
+    returns_description: str
+    """Description of the return value from the docstring"""
+    raises_description: dict[str, str]
+    """Descriptions of exceptions raised from the docstring"""
 
 
 class ListToolsResult(PaginatedResult):

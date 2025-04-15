@@ -21,9 +21,9 @@ class Tool(BaseModel):
 
     fn: Callable[..., Any] = Field(exclude=True)
     name: str = Field(description="Name of the tool")
-    # description: str = Field(description="Description of what the tool does")
+    description: str = Field(description="Summary line from the tool's docstring")
     
-    summary: str = Field(description="Summary line from the tool's docstring")
+    # summary: str = Field(description="Summary line from the tool's docstring")
     args_description: dict[str, str] = Field(
         default_factory=dict, description="Descriptions of arguments from the docstring"
     )
@@ -82,11 +82,10 @@ class Tool(BaseModel):
         return cls(
             fn=fn,
             name=func_name,
-            summary=parsed_doc["summary"],
+            description=parsed_doc["summary"],
             args_description=parsed_doc["args"],
             returns_description=parsed_doc["returns"],
             raises_description=parsed_doc["raises"],
-            # description=func_doc,
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,

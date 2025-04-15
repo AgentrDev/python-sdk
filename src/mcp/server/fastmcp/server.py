@@ -176,7 +176,10 @@ class FastMCP:
         return [
             MCPTool(
                 name=info.name,
-                description=info.summary or info.name,
+                description=info.description or info.name,
+                args_description=info.args_description,
+                returns_description=info.returns_description,
+                raises_description=info.raises_description,
                 inputSchema=info.parameters,
             )
             for info in tools
@@ -245,7 +248,7 @@ class FastMCP:
         self,
         fn: AnyFunction,
         name: str | None = None,
-        description: str | None = None,
+        # description: str | None = None,
     ) -> None:
         """Add a tool to the server.
 
@@ -260,7 +263,7 @@ class FastMCP:
         self._tool_manager.add_tool(fn, name=name)
 
     def tool(
-        self, name: str | None = None, description: str | None = None
+        self, name: str | None = None, #description: str | None = None
     ) -> Callable[[AnyFunction], AnyFunction]:
         """Decorator to register a tool.
 
@@ -295,7 +298,7 @@ class FastMCP:
             )
 
         def decorator(fn: AnyFunction) -> AnyFunction:
-            self.add_tool(fn, name=name, description=description)
+            self.add_tool(fn, name=name)
             return fn
 
         return decorator
