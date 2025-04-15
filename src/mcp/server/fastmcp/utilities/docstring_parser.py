@@ -127,20 +127,3 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
         returns = " ".join(current_desc_lines).strip()
 
     return {"summary": summary, "args": args, "returns": returns, "raises": raises}
-
-# docstring="""
-#         Executes Python code within a secure E2B cloud sandbox.
-
-#         Args:
-#             code: The string containing the Python code to execute.
-
-#         Returns:
-#             A string containing the formatted standard output (stdout) and standard error (stderr)from the execution. If an error occurs during setup or execution, an error message string is returned.
-
-#         Raises:
-#             NotAuthorizedError: If the API key is not set.
-#             ValueError: If the API key set.
-# """
-
-# result = parse_docstring(docstring)
-# print(result)
