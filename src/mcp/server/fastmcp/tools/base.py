@@ -49,7 +49,7 @@ class Tool(BaseModel):
         cls,
         fn: Callable[..., Any],
         name: str | None = None,
-        description: str | None = None,
+        # description: str | None = None,
         context_kwarg: str | None = None,
     ) -> Tool:
         """Create a Tool from a function."""
