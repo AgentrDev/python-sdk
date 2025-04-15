@@ -176,7 +176,7 @@ class FastMCP:
         return [
             MCPTool(
                 name=info.name,
-                description=info.description,
+                description=info.summary or info.name,
                 inputSchema=info.parameters,
             )
             for info in tools
@@ -257,7 +257,7 @@ class FastMCP:
             name: Optional name for the tool (defaults to function name)
             description: Optional description of what the tool does
         """
-        self._tool_manager.add_tool(fn, name=name, description=description)
+        self._tool_manager.add_tool(fn, name=name)
 
     def tool(
         self, name: str | None = None, description: str | None = None
