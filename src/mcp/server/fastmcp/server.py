@@ -176,10 +176,11 @@ class FastMCP:
         return [
             MCPTool(
                 name=info.name,
-                description=info.description or info.name,
+                description=info.summary or info.name,
                 args_description=info.args_description,
                 returns_description=info.returns_description,
                 raises_description=info.raises_description,
+                tags=info.tags,
                 inputSchema=info.parameters,
             )
             for info in tools

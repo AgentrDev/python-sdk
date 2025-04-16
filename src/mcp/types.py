@@ -722,7 +722,8 @@ class Tool(BaseModel):
     """Description of the return value from the docstring"""
     raises_description: dict[str, str]
     """Descriptions of exceptions raised from the docstring"""
-
+    tags: list[str]
+    """Tags for categorizing the tool"""
 
 class ListToolsResult(PaginatedResult):
     """The server's response to a tools/list request from the client."""

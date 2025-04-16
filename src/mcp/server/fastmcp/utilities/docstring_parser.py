@@ -1,6 +1,6 @@
 import re
 
-from typing import Any, Dict # Added type hints
+from typing import Any, Dict
 
 def parse_docstring(docstring: str | None) -> Dict[str, Any]:
     """
@@ -15,18 +15,19 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
         'raises' is a dict mapping exception type names to descriptions.
     """
     if not docstring:
-        return {"summary": "", "args": {}, "returns": "", "raises": {}}
+        return {"summary": "", "args": {}, "returns": "", "raises": {}, "tags": []}
 
     lines = docstring.strip().splitlines()
     if not lines:
-        return {"summary": "", "args": {}, "returns": "", "raises": {}}
+        return {"summary": "", "args": {}, "returns": "", "raises": {}, "tags": []}
 
     summary = lines[0].strip()
     args = {}
     returns = ""
-    raises = {} # Added raises dictionary
+    raises = {}
+    tags: list[str] = []
     current_section = None
-    current_key = None # Used for both args and raises keys
+    current_key = None
     current_desc_lines = []
 
     # Regex to find args/raises lines: "key (type): description" or "key: description"
@@ -37,6 +38,10 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
         stripped_line = line.strip()
 
         if not stripped_line: # Skip empty lines between sections
+            # If we hit an empty line within the tags section, treat it as the end of that tag section
+            # This prevents accidentally merging later content into tags if indentation is missing
+            if current_section == "tags":
+                current_section = None # Assume end of tags section on empty line
             continue
 
         # --- Section Detection ---
@@ -50,9 +55,11 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
         elif section_line in ("returns:", "yields:"):
             new_section_type = "returns"
             is_new_section_header = True
-        # Added Raises section detection
         elif section_line.startswith(("raises ", "raises:", "errors:", "exceptions:")):
             new_section_type = "raises"
+            is_new_section_header = True
+        elif section_line.startswith(("tags:", "tags")):
+            new_section_type = "tags"
             is_new_section_header = True
         elif section_line.startswith(("attributes:", "see also:", "example:", "examples:", "notes:")):
             # Other common sections where we might stop processing previous ones
@@ -60,49 +67,51 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
             is_new_section_header = True
 
         # --- Finalize Previous Item ---
-        # Finalize if starting a new section OR if indentation breaks for current item
         finalize_previous = False
         if is_new_section_header:
             finalize_previous = True
+        # No 'key' for tags, finalize only if indentation breaks *within* args/raises/returns
         elif current_section in ["args", "raises"] and current_key and not line.startswith(' '):
             finalize_previous = True
         elif current_section == "returns" and current_desc_lines and not line.startswith(' '):
-             finalize_previous = True
+            finalize_previous = True
+        # Tags are simpler: finalize if we encounter a non-indented line that isn't a section header
+        elif current_section == "tags" and tags and not line.startswith(' ') and not is_new_section_header:
+            finalize_previous = True # End of tags section if indentation breaks
 
 
         if finalize_previous:
             if current_section == "args" and current_key:
                 args[current_key] = " ".join(current_desc_lines).strip()
-            elif current_section == "raises" and current_key: # Finalize raises item
+            elif current_section == "raises" and current_key:
                 raises[current_key] = " ".join(current_desc_lines).strip()
             elif current_section == "returns":
                 returns = " ".join(current_desc_lines).strip()
+            # No specific finalization needed for tags list itself here, just reset state
 
-            # Reset state for the potential new item/section
             current_key = None
             current_desc_lines = []
-            current_section = new_section_type # Set the new section type
+            # If it wasn't a new section header, it means we broke indentation,
+            # so we should stop processing the previous section type.
+            if not is_new_section_header:
+                current_section = None
+            else:
+                current_section = new_section_type # Set the new section type
 
             # If it was just a header line, continue to next line
             if is_new_section_header:
-                # If we hit a known 'other' section, we can stop processing altogether
-                # if current_section == "other":
-                #    break
                 continue
 
         # --- Process Line Content ---
         if current_section == "args" or current_section == "raises":
             match = key_pattern.match(line) # Match against original line for indentation check
             if match:
-                # Finalize previous key within the *same* section if starting a new key
                 if current_key:
-                     desc = " ".join(current_desc_lines).strip()
-                     if current_section == "args":
-                         args[current_key] = desc
-                     elif current_section == "raises":
-                         raises[current_key] = desc
-
-                # Start the new key
+                    desc = " ".join(current_desc_lines).strip()
+                    if current_section == "args":
+                        args[current_key] = desc
+                    elif current_section == "raises":
+                        raises[current_key] = desc
                 current_key = match.group(1)
                 current_desc_lines = [match.group(2).strip()]
             elif current_key and line.startswith(' '): # Check for indentation for continuation
@@ -110,20 +119,24 @@ def parse_docstring(docstring: str | None) -> Dict[str, Any]:
             # else: Line doesn't match key format and isn't indented -> potentially end of section or ignored line
 
         elif current_section == "returns":
-             # If it's the start of returns desc or indented continuation line
-             if not current_desc_lines or line.startswith(' '):
-                 current_desc_lines.append(stripped_line)
-             # else: line doesn't look like continuation -> end of section handled above
+            if not current_desc_lines or line.startswith(' '):
+                current_desc_lines.append(stripped_line)
+            # else: line doesn't look like continuation -> end of section handled above
 
-    # --- Final capture after loop ---
-    if current_key: # Capture the last item being processed
+        elif current_section == "tags": # <-- Process lines in the Tags section
+            # Tags are just lines of text under the header, usually indented
+            # Allow non-indented tags if they directly follow the header
+            if line.startswith(' ') or not tags: # Check indentation or if it's the first tag
+                tags.append(stripped_line)
+
+    if current_key:
         desc = " ".join(current_desc_lines).strip()
         if current_section == "args":
             args[current_key] = desc
         elif current_section == "raises":
             raises[current_key] = desc
-    # Capture returns description if it was the last section being processed and wasn't finalized
     elif current_section == "returns" and not returns:
         returns = " ".join(current_desc_lines).strip()
 
-    return {"summary": summary, "args": args, "returns": returns, "raises": raises}
+    # Return the complete dictionary including tags
+    return {"summary": summary, "args": args, "returns": returns, "raises": raises, "tags": tags}

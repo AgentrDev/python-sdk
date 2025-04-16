@@ -21,9 +21,8 @@ class Tool(BaseModel):
 
     fn: Callable[..., Any] = Field(exclude=True)
     name: str = Field(description="Name of the tool")
-    description: str = Field(description="Summary line from the tool's docstring")
     
-    # summary: str = Field(description="Summary line from the tool's docstring")
+    summary: str = Field(description="Summary line from the tool's docstring")
     args_description: dict[str, str] = Field(
         default_factory=dict, description="Descriptions of arguments from the docstring"
     )
@@ -33,6 +32,7 @@ class Tool(BaseModel):
     raises_description: dict[str, str] = Field(
         default_factory=dict, description="Descriptions of exceptions raised from the docstring"
     )
+    tags: list[str] = Field(default_factory=list, description="Tags for categorizing the tool")
     
     parameters: dict[str, Any] = Field(description="JSON schema for tool parameters")
     fn_metadata: FuncMetadata = Field(
@@ -49,7 +49,6 @@ class Tool(BaseModel):
         cls,
         fn: Callable[..., Any],
         name: str | None = None,
-        # description: str | None = None,
         context_kwarg: str | None = None,
     ) -> Tool:
         """Create a Tool from a function."""
@@ -60,7 +59,6 @@ class Tool(BaseModel):
         if func_name == "<lambda>":
             raise ValueError("You must provide a name for lambda functions")
 
-        # func_doc = description or fn.__doc__ or ""
         raw_doc = inspect.getdoc(fn)
         parsed_doc = parse_docstring(raw_doc)
         
@@ -82,10 +80,11 @@ class Tool(BaseModel):
         return cls(
             fn=fn,
             name=func_name,
-            description=parsed_doc["summary"],
+            summary=parsed_doc["summary"],
             args_description=parsed_doc["args"],
             returns_description=parsed_doc["returns"],
             raises_description=parsed_doc["raises"],
+            tags=parsed_doc["tags"],
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
