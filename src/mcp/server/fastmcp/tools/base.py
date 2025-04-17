@@ -2,12 +2,13 @@ from __future__ import annotations as _annotations
 
 import inspect
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, get_origin
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.utilities.func_metadata import FuncMetadata, func_metadata
+from mcp.server.fastmcp.utilities.docstring_parser import parse_docstring
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
@@ -20,7 +21,19 @@ class Tool(BaseModel):
 
     fn: Callable[..., Any] = Field(exclude=True)
     name: str = Field(description="Name of the tool")
-    description: str = Field(description="Description of what the tool does")
+    
+    summary: str = Field(description="Summary line from the tool's docstring")
+    args_description: dict[str, str] = Field(
+        default_factory=dict, description="Descriptions of arguments from the docstring"
+    )
+    returns_description: str = Field(
+        default="", description="Description of the return value from the docstring"
+    )
+    raises_description: dict[str, str] = Field(
+        default_factory=dict, description="Descriptions of exceptions raised from the docstring"
+    )
+    tags: list[str] = Field(default_factory=list, description="Tags for categorizing the tool")
+    
     parameters: dict[str, Any] = Field(description="JSON schema for tool parameters")
     fn_metadata: FuncMetadata = Field(
         description="Metadata about the function including a pydantic model for tool"
@@ -36,7 +49,6 @@ class Tool(BaseModel):
         cls,
         fn: Callable[..., Any],
         name: str | None = None,
-        description: str | None = None,
         context_kwarg: str | None = None,
     ) -> Tool:
         """Create a Tool from a function."""
@@ -47,15 +59,15 @@ class Tool(BaseModel):
         if func_name == "<lambda>":
             raise ValueError("You must provide a name for lambda functions")
 
-        func_doc = description or fn.__doc__ or ""
+        raw_doc = inspect.getdoc(fn)
+        parsed_doc = parse_docstring(raw_doc)
+        
         is_async = inspect.iscoroutinefunction(fn)
 
         if context_kwarg is None:
             sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if get_origin(param.annotation) is not None:
-                    continue
-                if issubclass(param.annotation, Context):
+                if param.annotation is Context:
                     context_kwarg = param_name
                     break
 
@@ -68,7 +80,11 @@ class Tool(BaseModel):
         return cls(
             fn=fn,
             name=func_name,
-            description=func_doc,
+            summary=parsed_doc["summary"],
+            args_description=parsed_doc["args"],
+            returns_description=parsed_doc["returns"],
+            raises_description=parsed_doc["raises"],
+            tags=parsed_doc["tags"],
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
